@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	printTimeFormat   = "2006-01-02 15:04:05"
+	printTimeFormat   = "2006-01-02 15:04:05.000"
 	backupTimeFormat  = "2006-01-02T15-04-05.000"
 	compressSuffix    = ".gz"
+	defaultLogName    = "./log/default.log"
 	defaultMaxSize    = 100
 	defaultRotateCron = "0 0 0 * * *" // 00:00 AM every morning
 )
@@ -102,13 +103,15 @@ var (
 
 	defaultLog *Logger
 )
+var DefaultLogOption *LoggerOption
 
 // init default log
 func InitDefaultLog(option *LoggerOption) {
-	if option.FileName == "" {
-		option.FileName = "./default.log"
+	DefaultLogOption = option
+	if DefaultLogOption.FileName == "" {
+		DefaultLogOption.FileName = defaultLogName
 	}
-	defaultLog = NewLoggo(option)
+	defaultLog = NewLoggo(DefaultLogOption)
 }
 
 func NewLoggo(option *LoggerOption) *Logger {
@@ -150,7 +153,7 @@ func Errorfn(format string, args ...interface{}) {
 }
 func Fatalfn(format string, args ...interface{}) {
 	defaultLog.printfn(INFO, format, args...)
-	panic(fmt.Sprintf(format, args))
+	panic(fmt.Sprintf(format, args...))
 }
 
 func (p *Logger) Debugln(m ...string) {
@@ -168,10 +171,10 @@ func (p *Logger) Fatalln(m ...string) {
 }
 
 func (p *Logger) println(level int, m ...string) {
-	if p.option.Level < level {
+	if p.option.Level > level {
 		return
 	}
-	p.printWithColor(getColor(level), m...)
+	p.printWithColor(level, m...)
 }
 
 func (p *Logger) Debugfn(format string, args ...interface{}) {
@@ -185,22 +188,22 @@ func (p *Logger) Errorfn(format string, args ...interface{}) {
 }
 func (p *Logger) Fatalfn(format string, args ...interface{}) {
 	p.printfn(INFO, format, args...)
-	panic(fmt.Sprintf(format, args))
+	panic(fmt.Sprintf(format, args...))
 }
 
 func (p *Logger) printfn(level int, format string, args ...interface{}) {
-	if p.option.Level < level {
+	if p.option.Level > level {
 		return
 	}
 	s := fmt.Sprintf(format, args...)
-	p.printWithColor(getColor(level), []string{s}...)
+	p.printWithColor(level, []string{s}...)
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
 func getColor(level int) int {
 	switch level {
 	case DEBUG:
-		return 36
+		return 33
 	case INFO:
 		return 32
 	case ERROR:
@@ -210,38 +213,49 @@ func getColor(level int) int {
 	}
 	return 30
 }
+func getLevelStr(level int) string {
+	switch level {
+	case DEBUG:
+		return "DEBUG"
+	case INFO:
+		return "INFO "
+	case ERROR:
+		return "ERROR"
+	case FATAL:
+		return "FATAL"
+	}
+	return "UNKNOWN"
+}
 func (p *Logger) PlainText(m ...string) {
 	if len(m) == 0 {
 		return
 	}
-	var c string
-	c = strings.Join(m, ",")
+	s := strings.Join(m, ",")
 	if p.option.StdOut {
-		log.Print(c)
+		log.Print(s)
 	}
-	p.Write([]byte(c))
+	p.Write([]byte(s))
 }
 func (p *Logger) PlainTextln(m ...string) {
-	var c string
 	if len(m) == 0 {
 		return
 	}
-	c = strings.Join(m, ",")
+	s := strings.Join(m, ",")
 	if p.option.StdOut {
-		log.Print(c)
+		fmt.Println(s)
 	}
-	p.Write([]byte(c + "\n"))
+	p.Write([]byte(s + "\n"))
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
-func (p *Logger) printWithColor(color int, m ...string) {
+func (p *Logger) printWithColor(level int, m ...string) {
 	if len(m) == 0 {
 		return
 	}
 	content := strings.Join(m, ",")
-	s := fmt.Sprintf("\033[%d;1m[%s] %s \033[0m\n", color, getTime(), content)
+	s := fmt.Sprintf("\033[%d;1m[%s|%s] %s \033[0m\n", getColor(level), getTime(), getLevelStr(level), content)
 	if p.option.StdOut {
-		log.Print(s)
+		os.Stdout.Write([]byte(s))
 	}
 	p.Write([]byte(s))
 }
@@ -290,16 +304,16 @@ func (l *Logger) Close() error {
 // rotate
 func (l *Logger) startRotateCron() {
 	c := cron.New()
-	log.Println("Log rotate cron:", l.option.RotateCron)
+	l.Infoln("Log rotate cron:", l.option.RotateCron)
 	c.AddFunc(l.option.RotateCron, func() {
-		log.Println("------Start rotate log job")
+		l.Infoln("------Start rotate log job")
 		if l.rotateRunning {
-			log.Println("job not finish wait...")
+			l.Infoln("job not finish wait...")
 			return
 		}
 		l.rotateRunning = true
 		if err := l.Rotate(); err != nil {
-			log.Println("rotate error,", err.Error())
+			l.Errorln("rotate error,", err.Error())
 		}
 		l.rotateRunning = false
 	})
@@ -422,10 +436,6 @@ func (l *Logger) openExistingOrNew(writeLen int) error {
 		return l.openNew()
 	}
 	l.file = file
-
-	// redirect stdout and stderr to the log file
-	os.Stdout = l.file
-	os.Stderr = l.file
 	l.size = info.Size()
 	return nil
 }
@@ -435,8 +445,7 @@ func (l *Logger) filename() string {
 	if l.option.FileName != "" {
 		return l.option.FileName
 	}
-	name := filepath.Base(os.Args[0]) + "-lumberjack.log"
-	return filepath.Join(os.TempDir(), name)
+	return "./log/default.log"
 }
 
 // millRunOnce performs compression and removal of stale log files.
