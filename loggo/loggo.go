@@ -252,7 +252,7 @@ func (p *Logger) printWithColor(level int, m ...string) {
 	if len(m) == 0 {
 		return
 	}
-	content := strings.Join(m, ",")
+	content := strings.Join(m, "\t")
 	s := fmt.Sprintf("\033[%d;1m[%s|%s] %s \033[0m\n", getColor(level), getTime(), getLevelStr(level), content)
 	if p.option.StdOut {
 		os.Stdout.Write([]byte(s))

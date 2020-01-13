@@ -6,9 +6,9 @@ import (
 
 func main() {
 	loggo.InitDefaultLog(&loggo.LoggerOption{StdOut: true, Level: loggo.ALL})
-	loggo.Debugln("debug")
-	loggo.Infoln("info")
-	loggo.Errorln("error")
+	loggo.Debugln("debug", "a", "b", "c")
+	loggo.Infoln("info", "a")
+	loggo.Errorln("error", "aaa", "b")
 
 	loggo.DefaultLogOption.Level = loggo.ERROR
 
