@@ -13,24 +13,41 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/robfig/cron"
 )
 
 const (
-	backupTimeFormat = "2006-01-02T15-04-05.000"
-	compressSuffix   = ".gz"
-	defaultMaxSize   = 100
+	printTimeFormat   = "2006-01-02 15:04:05"
+	backupTimeFormat  = "2006-01-02T15-04-05.000"
+	compressSuffix    = ".gz"
+	defaultMaxSize    = 100
+	defaultRotateCron = "0 0 0 * * *" // 00:00 AM every morning
+)
+
+// log level
+const (
+	ALL = iota
+	DEBUG
+	INFO
+	ERROR
+	FATAL
+	OFF
 )
 
 // ensure we always implement io.WriteCloser
 var _ io.WriteCloser = (*Logger)(nil)
 
 type LoggerOption struct {
+	// RotateCron set the cron to rotate the log file
+	RotateCron string
 
 	// FileName is the file to write logs to.  Backup log files will be retained
 	// in the same directory.  It uses <processname>-lumberjack.log in
 	// os.TempDir() if empty.
-	FileName string        `json:"filename" yaml:"filename"`
-	FileTime time.Duration `json:"filetime" yaml:"filetime"`
+	FileName string `json:"filename" yaml:"filename"`
+
+	Level int
 
 	// MaxSize is the maximum size in megabytes of the log file before it gets
 	// rotated. It defaults to 100 megabytes.
@@ -56,18 +73,19 @@ type LoggerOption struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" yaml:"compress"`
-	Console  bool `json:"console" yaml:"console"`
+
+	// StdOut determines if the log should output to the std output
+	StdOut bool `json:"stdOut" yaml:"stdOut"`
 }
 type Logger struct {
-	option *LoggerOption
-
-	size int64
-	file *os.File
-	mu   sync.Mutex
+	option        *LoggerOption
+	rotateRunning bool
+	size          int64
+	file          *os.File
+	mu            sync.Mutex
 
 	millCh    chan bool
 	startMill sync.Once
-	startTime time.Time
 }
 
 var (
@@ -81,31 +99,138 @@ var (
 	// variable so tests can mock it out and not need to write megabytes of data
 	// to disk.
 	megabyte = 1024 * 1024
+
+	defaultLog *Logger
 )
 
+// init default log
+func InitDefaultLog(option *LoggerOption) {
+	if option.FileName == "" {
+		option.FileName = "./default.log"
+	}
+	defaultLog = NewLoggo(option)
+}
+
 func NewLoggo(option *LoggerOption) *Logger {
+	if option.FileName == "" {
+		panic("Please set the log file name")
+	}
 	option.LocalTime = true
 	option.Compress = true
+	if option.RotateCron == "" {
+		option.RotateCron = defaultRotateCron
+	}
 	l := Logger{option: option}
-	l.startTime = time.Now()
+	l.startRotateCron()
 	return &l
 }
-func (p *Logger) Print(m ...string) {
-	p.printWithColor(30, m...)
+
+func Debugln(m ...string) {
+	defaultLog.println(DEBUG, m...)
 }
-func (p *Logger) Info(m ...string) {
-	p.printWithColor(30, m...)
+func Infoln(m ...string) {
+	defaultLog.println(INFO, m...)
 }
-func (p *Logger) Error(m ...string) {
-	p.printWithColor(31, m...)
+func Errorln(m ...string) {
+	defaultLog.println(ERROR, m...)
 }
-func (p *Logger) Infof(format string, args ...interface{}) {
-	f1 := fmt.Sprintf(format, args...)
-	p.printWithColor(30, []string{f1}...)
+func Fatalln(m ...string) {
+	defaultLog.println(FATAL, m...)
+	panic(strings.Join(m, ","))
 }
-func (p *Logger) Errorf(format string, args ...interface{}) {
-	f1 := fmt.Sprintf(format, args...)
-	p.printWithColor(31, []string{f1}...)
+
+func Debugfn(format string, args ...interface{}) {
+	defaultLog.printfn(DEBUG, format, args...)
+}
+func Infofn(format string, args ...interface{}) {
+	defaultLog.printfn(INFO, format, args...)
+}
+func Errorfn(format string, args ...interface{}) {
+	defaultLog.printfn(ERROR, format, args...)
+}
+func Fatalfn(format string, args ...interface{}) {
+	defaultLog.printfn(INFO, format, args...)
+	panic(fmt.Sprintf(format, args))
+}
+
+func (p *Logger) Debugln(m ...string) {
+	p.println(DEBUG, m...)
+}
+func (p *Logger) Infoln(m ...string) {
+	p.println(INFO, m...)
+}
+func (p *Logger) Errorln(m ...string) {
+	p.println(ERROR, m...)
+}
+func (p *Logger) Fatalln(m ...string) {
+	p.println(FATAL, m...)
+	panic(strings.Join(m, ","))
+}
+
+func (p *Logger) println(level int, m ...string) {
+	if p.option.Level < level {
+		return
+	}
+	p.printWithColor(getColor(level), m...)
+}
+
+func (p *Logger) Debugfn(format string, args ...interface{}) {
+	p.printfn(DEBUG, format, args...)
+}
+func (p *Logger) Infofn(format string, args ...interface{}) {
+	p.printfn(INFO, format, args...)
+}
+func (p *Logger) Errorfn(format string, args ...interface{}) {
+	p.printfn(ERROR, format, args...)
+}
+func (p *Logger) Fatalfn(format string, args ...interface{}) {
+	p.printfn(INFO, format, args...)
+	panic(fmt.Sprintf(format, args))
+}
+
+func (p *Logger) printfn(level int, format string, args ...interface{}) {
+	if p.option.Level < level {
+		return
+	}
+	s := fmt.Sprintf(format, args...)
+	p.printWithColor(getColor(level), []string{s}...)
+}
+
+// 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
+func getColor(level int) int {
+	switch level {
+	case DEBUG:
+		return 36
+	case INFO:
+		return 32
+	case ERROR:
+		return 35
+	case FATAL:
+		return 31
+	}
+	return 30
+}
+func (p *Logger) PlainText(m ...string) {
+	if len(m) == 0 {
+		return
+	}
+	var c string
+	c = strings.Join(m, ",")
+	if p.option.StdOut {
+		log.Print(c)
+	}
+	p.Write([]byte(c))
+}
+func (p *Logger) PlainTextln(m ...string) {
+	var c string
+	if len(m) == 0 {
+		return
+	}
+	c = strings.Join(m, ",")
+	if p.option.StdOut {
+		log.Print(c)
+	}
+	p.Write([]byte(c + "\n"))
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
@@ -115,27 +240,13 @@ func (p *Logger) printWithColor(color int, m ...string) {
 	}
 	content := strings.Join(m, ",")
 	s := fmt.Sprintf("\033[%d;1m[%s] %s \033[0m\n", color, getTime(), content)
-	if p.option.Console {
+	if p.option.StdOut {
 		log.Print(s)
-		return
 	}
 	p.Write([]byte(s))
 }
-func (p *Logger) PlainText(m ...string) {
-	var c string
-	if len(m) == 0 {
-		return
-	}
-	c = strings.Join(m, ",")
-	if p.option.Console {
-		log.Print(c)
-		return
-	}
-	p.Write([]byte(c + "\n"))
-}
-
 func getTime() string {
-	return time.Now().Format("2006-01-02 15:04:05")
+	return time.Now().Format(printTimeFormat)
 }
 
 // Write implements io.Writer.  If a write would cause the log file to be larger
@@ -164,15 +275,8 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 			return 0, err
 		}
 	}
-	if l.option.FileTime != 0 && time.Now().Sub(l.startTime) > l.option.FileTime {
-		if err := l.rotate(); err != nil {
-			return 0, err
-		}
-	}
-
 	n, err = l.file.Write(p)
 	l.size += int64(n)
-
 	return n, err
 }
 
@@ -181,6 +285,25 @@ func (l *Logger) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.close()
+}
+
+// rotate
+func (l *Logger) startRotateCron() {
+	c := cron.New()
+	log.Println("Log rotate cron:", l.option.RotateCron)
+	c.AddFunc(l.option.RotateCron, func() {
+		log.Println("------Start rotate log job")
+		if l.rotateRunning {
+			log.Println("job not finish wait...")
+			return
+		}
+		l.rotateRunning = true
+		if err := l.Rotate(); err != nil {
+			log.Println("rotate error,", err.Error())
+		}
+		l.rotateRunning = false
+	})
+	c.Start()
 }
 
 // close closes the file if it is open.
@@ -299,6 +422,10 @@ func (l *Logger) openExistingOrNew(writeLen int) error {
 		return l.openNew()
 	}
 	l.file = file
+
+	// redirect stdout and stderr to the log file
+	os.Stdout = l.file
+	os.Stderr = l.file
 	l.size = info.Size()
 	return nil
 }
@@ -349,7 +476,7 @@ func (l *Logger) millRunOnce() error {
 		files = remaining
 	}
 	if l.option.MaxAge > 0 {
-		diff := time.Duration(int64(l.option.MaxAge) * int64(24*time.Hour))
+		diff := time.Duration(int64(l.option.MaxAge) * int64(1*time.Minute))
 		cutoff := currentTime().Add(-1 * diff)
 
 		var remaining []logInfo
