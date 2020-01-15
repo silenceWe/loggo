@@ -46,37 +46,37 @@ type LoggerOption struct {
 	// FileName is the file to write logs to.  Backup log files will be retained
 	// in the same directory.  It uses <processname>-lumberjack.log in
 	// os.TempDir() if empty.
-	FileName string `json:"filename" yaml:"filename"`
+	FileName string `json:"filename" ini:"filename"`
 
 	Level int
 
 	// MaxSize is the maximum size in megabytes of the log file before it gets
 	// rotated. It defaults to 100 megabytes.
-	MaxSize int `json:"maxsize" yaml:"maxsize"`
+	MaxSize int `json:"maxsize" ini:"maxsize"`
 
 	// MaxAge is the maximum number of days to retain old log files based on the
 	// timestamp encoded in their filename.  Note that a day is defined as 24
 	// hours and may not exactly correspond to calendar days due to daylight
 	// savings, leap seconds, etc. The default is not to remove old log files
 	// based on age.
-	MaxAge int `json:"maxage" yaml:"maxage"`
+	MaxAge int `json:"maxage" ini:"maxage"`
 
 	// MaxBackups is the maximum number of old log files to retain.  The default
 	// is to retain all old log files (though MaxAge may still cause them to get
 	// deleted.)
-	MaxBackups int `json:"maxbackups" yaml:"maxbackups"`
+	MaxBackups int `json:"maxbackups" ini:"maxbackups"`
 
 	// LocalTime determines if the time used for formatting the timestamps in
 	// backup files is the computer's local time.  The default is to use UTC
 	// time.
-	LocalTime bool `json:"localtime" yaml:"localtime"`
+	LocalTime bool `json:"localtime" ini:"localtime"`
 
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
-	Compress bool `json:"compress" yaml:"compress"`
+	Compress bool `json:"compress" ini:"compress"`
 
 	// StdOut determines if the log should output to the std output
-	StdOut bool `json:"stdOut" yaml:"stdOut"`
+	StdOut bool `json:"stdOut" ini:"stdOut"`
 }
 type Logger struct {
 	option        *LoggerOption
@@ -101,9 +101,9 @@ var (
 	// to disk.
 	megabyte = 1024 * 1024
 
-	defaultLog *Logger
+	defaultLog       *Logger
+	DefaultLogOption *LoggerOption
 )
-var DefaultLogOption *LoggerOption
 
 // init default log
 func InitDefaultLog(option *LoggerOption) {
@@ -154,6 +154,27 @@ func Errorfn(format string, args ...interface{}) {
 func Fatalfn(format string, args ...interface{}) {
 	defaultLog.printfn(INFO, format, args...)
 	panic(fmt.Sprintf(format, args...))
+}
+
+func PlainText(m ...string) {
+	if len(m) == 0 {
+		return
+	}
+	s := strings.Join(m, ",")
+	if defaultLog.option.StdOut {
+		fmt.Println(s)
+	}
+	defaultLog.Write([]byte(s))
+}
+func PlainTextln(m ...string) {
+	if len(m) == 0 {
+		return
+	}
+	s := strings.Join(m, ",")
+	if defaultLog.option.StdOut {
+		fmt.Println(s)
+	}
+	defaultLog.Write([]byte(s + "\n"))
 }
 
 func (p *Logger) Debugln(m ...string) {
@@ -445,7 +466,7 @@ func (l *Logger) filename() string {
 	if l.option.FileName != "" {
 		return l.option.FileName
 	}
-	return "./log/default.log"
+	return defaultLogName
 }
 
 // millRunOnce performs compression and removal of stale log files.
