@@ -1,7 +1,12 @@
 package main
+/*
+ * @Description: 
+ * @Author: chenwei
+ * @Date: 2020-01-15 16:47:52
+ */
 
 import (
-	"loggo/loggo"
+	"github.com/silenceWe/loggo/loggo"
 )
 
 func main() {
