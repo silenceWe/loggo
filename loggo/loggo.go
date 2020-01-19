@@ -128,31 +128,36 @@ func NewLoggo(option *LoggerOption) *Logger {
 	return &l
 }
 
+// 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
+func Text(color int, m ...string) {
+	defaultLog.txt(color, m...)
+}
+
 func Debugln(m ...string) {
-	defaultLog.println(DEBUG, m...)
+	defaultLog.logln(DEBUG, m...)
 }
 func Infoln(m ...string) {
-	defaultLog.println(INFO, m...)
+	defaultLog.logln(INFO, m...)
 }
 func Errorln(m ...string) {
-	defaultLog.println(ERROR, m...)
+	defaultLog.logln(ERROR, m...)
 }
 func Fatalln(m ...string) {
-	defaultLog.println(FATAL, m...)
+	defaultLog.logln(FATAL, m...)
 	panic(strings.Join(m, ","))
 }
 
 func Debugfn(format string, args ...interface{}) {
-	defaultLog.printfn(DEBUG, format, args...)
+	defaultLog.logfn(DEBUG, format, args...)
 }
 func Infofn(format string, args ...interface{}) {
-	defaultLog.printfn(INFO, format, args...)
+	defaultLog.logfn(INFO, format, args...)
 }
 func Errorfn(format string, args ...interface{}) {
-	defaultLog.printfn(ERROR, format, args...)
+	defaultLog.logfn(ERROR, format, args...)
 }
 func Fatalfn(format string, args ...interface{}) {
-	defaultLog.printfn(INFO, format, args...)
+	defaultLog.logfn(INFO, format, args...)
 	panic(fmt.Sprintf(format, args...))
 }
 
@@ -178,46 +183,46 @@ func PlainTextln(m ...string) {
 }
 
 func (p *Logger) Debugln(m ...string) {
-	p.println(DEBUG, m...)
+	p.logln(DEBUG, m...)
 }
 func (p *Logger) Infoln(m ...string) {
-	p.println(INFO, m...)
+	p.logln(INFO, m...)
 }
 func (p *Logger) Errorln(m ...string) {
-	p.println(ERROR, m...)
+	p.logln(ERROR, m...)
 }
 func (p *Logger) Fatalln(m ...string) {
-	p.println(FATAL, m...)
+	p.logln(FATAL, m...)
 	panic(strings.Join(m, ","))
 }
 
-func (p *Logger) println(level int, m ...string) {
+func (p *Logger) logln(level int, m ...string) {
 	if p.option.Level > level {
 		return
 	}
-	p.printWithColor(level, m...)
+	p.log(level, m...)
 }
 
 func (p *Logger) Debugfn(format string, args ...interface{}) {
-	p.printfn(DEBUG, format, args...)
+	p.logfn(DEBUG, format, args...)
 }
 func (p *Logger) Infofn(format string, args ...interface{}) {
-	p.printfn(INFO, format, args...)
+	p.logfn(INFO, format, args...)
 }
 func (p *Logger) Errorfn(format string, args ...interface{}) {
-	p.printfn(ERROR, format, args...)
+	p.logfn(ERROR, format, args...)
 }
 func (p *Logger) Fatalfn(format string, args ...interface{}) {
-	p.printfn(INFO, format, args...)
+	p.logfn(INFO, format, args...)
 	panic(fmt.Sprintf(format, args...))
 }
 
-func (p *Logger) printfn(level int, format string, args ...interface{}) {
+func (p *Logger) logfn(level int, format string, args ...interface{}) {
 	if p.option.Level > level {
 		return
 	}
 	s := fmt.Sprintf(format, args...)
-	p.printWithColor(level, []string{s}...)
+	p.log(level, []string{s}...)
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
@@ -269,7 +274,20 @@ func (p *Logger) PlainTextln(m ...string) {
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
-func (p *Logger) printWithColor(level int, m ...string) {
+func (p *Logger) txt(color int, m ...string) {
+	if len(m) == 0 {
+		return
+	}
+	content := strings.Join(m, "\t")
+	s := fmt.Sprintf("\033[%d;1m%s\033[0m", color, content)
+	if p.option.StdOut {
+		os.Stdout.Write([]byte(s))
+	}
+	p.Write([]byte(s))
+}
+
+// 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
+func (p *Logger) log(level int, m ...string) {
 	if len(m) == 0 {
 		return
 	}
