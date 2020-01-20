@@ -1,13 +1,12 @@
 package main
+
+import "github.com/silenceWe/loggo"
+
 /*
- * @Description: 
+ * @Description:
  * @Author: chenwei
  * @Date: 2020-01-15 16:47:52
  */
-
-import (
-	"github.com/silenceWe/loggo"
-)
 
 func main() {
 	loggo.InitDefaultLog(&loggo.LoggerOption{StdOut: true, Level: loggo.ALL})
