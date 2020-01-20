@@ -6,7 +6,7 @@ package main
  */
 
 import (
-	"github.com/silenceWe/loggo/loggo"
+	"github.com/silenceWe/loggo"
 )
 
 func main() {
