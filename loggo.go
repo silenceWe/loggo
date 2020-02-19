@@ -548,7 +548,6 @@ func (l *Logger) millRunOnce() error {
 		}
 	}
 
-	fmt.Printf("remove:%+v\n",remove)
 	for _, f := range remove {
 		errRemove := os.Remove(filepath.Join(l.dir(), f.Name()))
 		if err == nil && errRemove != nil {
