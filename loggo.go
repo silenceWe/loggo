@@ -526,7 +526,7 @@ func (l *Logger) millRunOnce() error {
 		files = remaining
 	}
 	if l.option.MaxAge > 0 {
-		diff := time.Duration(int64(l.option.MaxAge) * int64(1*time.Minute))
+		diff := time.Duration(int64(l.option.MaxAge) * int64(24*time.Hour))
 		cutoff := currentTime().Add(-1 * diff)
 
 		var remaining []logInfo
@@ -548,6 +548,7 @@ func (l *Logger) millRunOnce() error {
 		}
 	}
 
+	fmt.Printf("remove:%+v\n",remove)
 	for _, f := range remove {
 		errRemove := os.Remove(filepath.Join(l.dir(), f.Name()))
 		if err == nil && errRemove != nil {

@@ -13,7 +13,7 @@ var log1 *loggo.Logger
 func main() {
 
 	loggo.InitDefaultLog(&loggo.LoggerOption{StdOut: true, Level: loggo.ALL})
-	log1 = loggo.NewLoggo(&loggo.LoggerOption{StdOut: false, Level: loggo.ALL, FileName: "./log/log1.log", MaxSize: 500})
+	log1 = loggo.NewLoggo(&loggo.LoggerOption{StdOut: false, Level: loggo.ALL, MaxAge: 7, FileName: "./log/log1.log",RotateCron:"0/5 * * * * *"})
 	start()
 }
 
@@ -26,8 +26,9 @@ func start() {
 
 func print() {
 	for {
-		log1.Infoln("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "ccccccccccccccccccccccccccccccccccccccccccccccc", "ddddddddddddddddddddddddddddddddddddddddddd")
+		log1.Infoln("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 		atomic.AddInt64(&count, 1)
+		time.Sleep(1*time.Second)
 	}
 }
 
