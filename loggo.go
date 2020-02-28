@@ -121,7 +121,6 @@ func NewLoggo(option *LoggerOption) *Logger {
 		panic("Please set the log file name")
 	}
 	option.LocalTime = true
-	option.Compress = true
 	if option.RotateCron == "" {
 		option.RotateCron = defaultRotateCron
 	}
