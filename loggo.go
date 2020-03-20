@@ -103,7 +103,7 @@ var (
 	// to disk.
 	megabyte = 1024 * 1024
 
-	defaultLog       *Logger
+	DefaultLog       *Logger
 	DefaultLogOption *LoggerOption
 )
 
@@ -113,7 +113,7 @@ func InitDefaultLog(option *LoggerOption) {
 	if DefaultLogOption.FileName == "" {
 		DefaultLogOption.FileName = defaultLogName
 	}
-	defaultLog = NewLoggo(DefaultLogOption)
+	DefaultLog = NewLoggo(DefaultLogOption)
 }
 
 func NewLoggo(option *LoggerOption) *Logger {
@@ -131,34 +131,34 @@ func NewLoggo(option *LoggerOption) *Logger {
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
 func Text(color int, m ...string) {
-	defaultLog.txt(color, m...)
+	DefaultLog.txt(color, m...)
 }
 
 func Debugln(m ...string) {
-	defaultLog.logln(DEBUG, m...)
+	DefaultLog.logln(DEBUG, m...)
 }
 func Infoln(m ...string) {
-	defaultLog.logln(INFO, m...)
+	DefaultLog.logln(INFO, m...)
 }
 func Errorln(m ...string) {
-	defaultLog.logln(ERROR, m...)
+	DefaultLog.logln(ERROR, m...)
 }
 func Fatalln(m ...string) {
-	defaultLog.logln(FATAL, m...)
+	DefaultLog.logln(FATAL, m...)
 	panic(strings.Join(m, ","))
 }
 
 func Debugfn(format string, args ...interface{}) {
-	defaultLog.logfn(DEBUG, format, args...)
+	DefaultLog.logfn(DEBUG, format, args...)
 }
 func Infofn(format string, args ...interface{}) {
-	defaultLog.logfn(INFO, format, args...)
+	DefaultLog.logfn(INFO, format, args...)
 }
 func Errorfn(format string, args ...interface{}) {
-	defaultLog.logfn(ERROR, format, args...)
+	DefaultLog.logfn(ERROR, format, args...)
 }
 func Fatalfn(format string, args ...interface{}) {
-	defaultLog.logfn(INFO, format, args...)
+	DefaultLog.logfn(INFO, format, args...)
 	panic(fmt.Sprintf(format, args...))
 }
 
@@ -167,20 +167,20 @@ func PlainText(m ...string) {
 		return
 	}
 	s := strings.Join(m, ",")
-	if defaultLog.option.StdOut {
+	if DefaultLog.option.StdOut {
 		fmt.Println(s)
 	}
-	defaultLog.Write([]byte(s))
+	DefaultLog.Write([]byte(s))
 }
 func PlainTextln(m ...string) {
 	if len(m) == 0 {
 		return
 	}
 	s := strings.Join(m, ",")
-	if defaultLog.option.StdOut {
+	if DefaultLog.option.StdOut {
 		fmt.Println(s)
 	}
-	defaultLog.Write([]byte(s + "\n"))
+	DefaultLog.Write([]byte(s + "\n"))
 }
 
 func (p *Logger) Debugln(m ...string) {
