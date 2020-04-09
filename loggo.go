@@ -27,7 +27,6 @@ const (
 )
 
 // LogLevel : type of log level
-type LogLevel int
 
 const (
 	ALL = iota
@@ -197,7 +196,7 @@ func (p *Logger) Fatalln(m ...string) {
 	panic(strings.Join(m, ","))
 }
 
-func (p *Logger) logln(level LogLevel, m ...string) {
+func (p *Logger) logln(level int, m ...string) {
 	if p.option.Level > level {
 		return
 	}
@@ -218,7 +217,7 @@ func (p *Logger) Fatalfn(format string, args ...interface{}) {
 	panic(fmt.Sprintf(format, args...))
 }
 
-func (p *Logger) logfn(level LogLevel, format string, args ...interface{}) {
+func (p *Logger) logfn(level int, format string, args ...interface{}) {
 	if p.option.Level > level {
 		return
 	}
@@ -227,7 +226,7 @@ func (p *Logger) logfn(level LogLevel, format string, args ...interface{}) {
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
-func getColor(level LogLevel) int {
+func getColor(level int) int {
 	switch level {
 	case DEBUG:
 		return 33
@@ -240,7 +239,7 @@ func getColor(level LogLevel) int {
 	}
 	return 30
 }
-func getLevelStr(level LogLevel) string {
+func getLevelStr(level int) string {
 	switch level {
 	case DEBUG:
 		return "DEBUG"
@@ -288,7 +287,7 @@ func (p *Logger) txt(color int, m ...string) {
 }
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
-func (p *Logger) log(level LogLevel, m ...string) {
+func (p *Logger) log(level int, m ...string) {
 	if len(m) == 0 {
 		return
 	}
