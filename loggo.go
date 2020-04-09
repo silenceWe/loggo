@@ -50,7 +50,7 @@ type LoggerOption struct {
 	// os.TempDir() if empty.
 	FileName string `json:"filename" ini:"filename"`
 
-	Level LogLevel
+	Level int
 
 	// MaxSize is the maximum size in megabytes of the log file before it gets
 	// rotated. It defaults to 100 megabytes.
