@@ -30,7 +30,7 @@ const (
 type LogLevel int
 
 const (
-	ALL LogLevel = iota
+	ALL = iota
 	DEBUG
 	INFO
 	ERROR
