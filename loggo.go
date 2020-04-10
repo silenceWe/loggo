@@ -78,6 +78,8 @@ type LoggerOption struct {
 
 	// StdOut determines if the log should output to the std output
 	StdOut bool `json:"stdOut" ini:"stdOut"`
+
+	WithOutColor bool
 }
 type Logger struct {
 	option        *LoggerOption
@@ -292,7 +294,12 @@ func (p *Logger) log(level int, m ...string) {
 		return
 	}
 	content := strings.Join(m, "\t")
-	s := fmt.Sprintf("\033[%d;1m[%s|%s] %s \033[0m\n", getColor(level), getTime(), getLevelStr(level), content)
+	var s string
+	if p.option.WithOutColor {
+		s = fmt.Sprintf("[%s|%s] %s\n", getTime(), getLevelStr(level), content)
+	} else {
+		s = fmt.Sprintf("\033[%d;1m[%s|%s] %s \033[0m\n", getColor(level), getTime(), getLevelStr(level), content)
+	}
 	if p.option.StdOut {
 		os.Stdout.Write([]byte(s))
 	}

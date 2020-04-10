@@ -15,7 +15,7 @@ import "github.com/silenceWe/loggo"
  */
 
 func main() {
-	loggo.InitDefaultLog(&loggo.LoggerOption{StdOut: true, Level: loggo.ALL})
+	loggo.InitDefaultLog(&loggo.LoggerOption{StdOut: true, Level: loggo.ALL, WithOutColor: true})
 	loggo.Debugln("debug", "a", "b", "c")
 	loggo.Infoln("info", "a")
 	loggo.Errorln("error", "aaa", "b")
