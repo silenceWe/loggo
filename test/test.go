@@ -14,8 +14,7 @@ func main() {
 	loggo.InitDefaultLog()
 
 	log1 = &loggo.Logger{Level: loggo.ALL}
-	log1.Writer = &loggo.FileWriter{FileName: "./loggo1.log"}
-	log1.WriterInit()
+	log1.SetWriter(&loggo.FileWriter{FileName: "./loggo1.log", Compress: true})
 	start()
 }
 
