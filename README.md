@@ -39,6 +39,7 @@ based on [lumberjack](https://github.com/natefinch/lumberjack)
 ### use go built-in log package and loggo writer to rotate log file
 ```
 	writer := &loggo.FileWriter{MaxAge: 7, FileName: "./log2.log"}
+	writer.Init()
 	logger1 := log.Logger{}
 	logger1.SetOutput(writer)
 	logger1.SetFlags(log.LUTC)
