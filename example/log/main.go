@@ -18,25 +18,27 @@ import (
 
 func main() {
 	// default log
-	loggo.InitDefaultLog(&loggo.LoggerOption{})
+	loggo.InitDefaultLog()
 	loggo.Debugln("debug", "a", "b", "c")
 	loggo.Infoln("info", "a")
 	loggo.Errorln("error", "aaa", "b")
 
 	// dynamic modify log level
-	loggo.DefaultLogOption.Level = loggo.ERROR
+	loggo.DefaultLog.Level = loggo.ERROR
 
 	loggo.Debugfn("debug:%s,%d", "aaa", 123)
 	loggo.Infofn("info:%s,%d", "aaa", 123)
 	loggo.Errorfn("error:%s,%d", "aaa", 123)
 
-	errLog := loggo.NewLoggo(&loggo.LoggerOption{
+	errLog := &loggo.Logger{Level: loggo.ALL}
+	errLog.SetWriter(&loggo.FileWriter{
 		RotateCron: "0 0 * * * *",   // 日志滚动定时任务cron表达式
-		StdOut:     true,            // 是否在输出文件的同时，输出到标准输出
-		Level:      loggo.ALL,       // 日志级别
 		FileName:   "./log/err.log", // 日志文件名，滚动日志将在相同目录下生成
-		MaxSize:    100,             // 单个日志最大size，超过阈值将会滚动
-
+		LocalTime:  false,
+		MaxSize:    100,   // 单个日志最大size，超过阈值将会滚动
+		MaxAge:     0,     // 日志保留时长(天)
+		MaxBackups: 0,     // 日志保留个数
+		Compress:   false, // 是否开启压缩
 	})
 
 	errLog.Infoln("err info:", "err")
