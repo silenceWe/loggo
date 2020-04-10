@@ -24,7 +24,6 @@ const (
 	defaultRotateCron = "0 0 0 * * *" // 00:00 AM every morning
 )
 
-
 // ensure we always implement io.WriteCloser
 var _ io.WriteCloser = (*LogWriter)(nil)
 
@@ -92,33 +91,11 @@ var (
 	DefaultLogOption *WriterOption
 )
 
-func NewLogWriter(option *WriterOption)*LogWriter{
-	l := LogWriter{option:option}
-	return &l
-}
-
-// init default log
-func InitDefaultLog(option *WriterOption) {
-	DefaultLogOption = option
-	if DefaultLogOption.FileName == "" {
-		DefaultLogOption.FileName = defaultLogName
-	}
-	defaultLog = NewLoggo(DefaultLogOption)
-}
-
-func NewLoggo(option *WriterOption) *LogWriter {
-	if option.FileName == "" {
-		panic("Please set the log file name")
-	}
-	option.LocalTime = true
-	option.Compress = true
-	if option.RotateCron == "" {
-		option.RotateCron = defaultRotateCron
-	}
+func NewLogWriter(option *WriterOption) *LogWriter {
 	l := LogWriter{option: option}
-	l.startRotateCron()
 	return &l
 }
+
 func getTime() string {
 	return time.Now().Format(printTimeFormat)
 }
@@ -151,7 +128,7 @@ func (l *LogWriter) Write(p []byte) (n int, err error) {
 	}
 	n, err = l.file.Write(p)
 	l.size += int64(n)
-	if l.option.StdOut{
+	if l.option.StdOut {
 		os.Stdout.Write(p)
 	}
 	return n, err
