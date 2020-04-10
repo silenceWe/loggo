@@ -37,6 +37,9 @@ func (p *Logger) SetWriter(writer *FileWriter) {
 	p.writer = writer
 	p.writer.Init()
 }
+func (p *Logger) GetWriter() *FileWriter {
+	return p.writer
+}
 
 // 30（黑色）、31（红色）、32（绿色）、 33（黄色）、34（蓝色）、35（洋红）、36（青色）、37（白色）
 func Text(color int, m ...string) {
