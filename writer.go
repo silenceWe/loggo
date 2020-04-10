@@ -89,6 +89,7 @@ func NewDefaultWriter() *FileWriter {
 	f := &FileWriter{
 		RotateCron: defaultRotateCron,
 		FileName:   defaultLogName,
+		MaxAge:     7,
 		LocalTime:  true,
 		MaxSize:    defaultMaxSize,
 		Compress:   true,
