@@ -40,6 +40,7 @@ based on [lumberjack](https://github.com/natefinch/lumberjack)
 ```
 	writer := &loggo.FileWriter{MaxAge: 7, FileName: "./log2.log"}
 	writer.Init()
+
 	logger1 := log.Logger{}
 	logger1.SetOutput(writer)
 	logger1.SetFlags(log.LUTC)
