@@ -79,7 +79,8 @@ type LoggerOption struct {
 	// StdOut determines if the log should output to the std output
 	StdOut bool `json:"stdOut" ini:"stdOut"`
 
-	WithOutColor bool
+	// WithOutColor is the trigger of log color,if true ,the log will has no color.default is false(with color)
+	WithOutColor bool `json:"withOutColor" ini:"without_color"`
 }
 type Logger struct {
 	option        *LoggerOption
