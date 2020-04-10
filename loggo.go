@@ -350,9 +350,7 @@ func (l *Logger) Close() error {
 // rotate
 func (l *Logger) startRotateCron() {
 	c := cron.New()
-	l.Infoln("Log rotate cron:", l.option.RotateCron)
 	c.AddFunc(l.option.RotateCron, func() {
-		l.Infoln("------Start rotate log job")
 		if l.rotateRunning {
 			l.Infoln("job not finish wait...")
 			return
