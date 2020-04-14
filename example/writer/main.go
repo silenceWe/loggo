@@ -11,8 +11,8 @@ func main() {
 		MaxAge:               7,
 		FileName:             "./log2.log",
 		RotateCron:           "0/5 * * * * *",
-		CustomerTimeFormat:   "2006-01-02T150405000",
-		CustomerBackupFormat: "testformat-%s.log",
+		CustomerTimeFormat:   "2006-01-02T150405000", // 自定义时间格式
+		CustomerBackupFormat: "testformat-%s.log",    // 自定义备份文件格式
 	}
 	writer.Init()
 	logger1 := log.Logger{}

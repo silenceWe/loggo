@@ -21,9 +21,14 @@ based on [lumberjack](https://github.com/natefinch/lumberjack)
 
 ```
 	
-	writer := &loggo.FileWriter{MaxAge: 7, FileName: "./log2.log",RotateCron: "0/5 * * * * *"}
+	writer := &loggo.FileWriter{
+		MaxAge:               7,
+		FileName:             "./log2.log",
+		RotateCron:           "0/5 * * * * *",
+		CustomerTimeFormat:   "2006-01-02T150405000", // 自定义时间格式
+		CustomerBackupFormat: "testformat-%s.log", // 自定义备份文件格式
+	}
 	writer.Init()
-	writer.SetBackupFormat("2006-01-02A150405000","testformat-%s.log")
 	logger1 := log.Logger{}
 	logger1.SetOutput(writer)
 	logger1.SetFlags(log.LUTC)
