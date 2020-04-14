@@ -26,8 +26,6 @@ const (
 
 // ensure we always implement io.WriteCloser
 var _ io.WriteCloser = (*FileWriter)(nil)
-var customerTimeFormat string
-var customerBackupFormat string
 
 type FileWriter struct {
 	// RotateCron set the cron to rotate the log file
@@ -65,6 +63,10 @@ type FileWriter struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" ini:"compress"`
+
+	CustomerTimeFormat string
+
+	CustomerBackupFormat string
 
 	rotateRunning bool
 	size          int64
@@ -107,11 +109,6 @@ func getTime() string {
 	return time.Now().Format(printTimeFormat)
 }
 
-// SetBackupFileFormat :
-func (p *FileWriter) SetBackupFormat(timeFormat, fileFormat string) {
-	customerBackupFormat = fileFormat
-	customerTimeFormat = timeFormat
-}
 func (p *FileWriter) Init() {
 	if p.FileName == "" {
 		p.FileName = "./default.log"
@@ -225,7 +222,7 @@ func (l *FileWriter) openNew() error {
 		// Copy the mode off the old logfile.
 		mode = info.Mode()
 		// move the existing file
-		newname := backupName(name, l.LocalTime)
+		newname := l.backupName(name)
 		if err := os.Rename(name, newname); err != nil {
 			return fmt.Errorf("can't rename log file: %s", err)
 		}
@@ -247,23 +244,23 @@ func (l *FileWriter) openNew() error {
 	l.size = 0
 	return nil
 }
-func customerBackupName(name string, local bool) string {
+func (l *FileWriter) customerBackupName(name string) string {
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)
 	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
-	if !local {
+	if !l.LocalTime {
 		t = t.UTC()
 	}
 
-	if customerBackupFormat != "" {
-		timestamp := t.Format(customerTimeFormat)
-		fileName := fmt.Sprintf(customerBackupFormat, timestamp)
+	if l.CustomerTimeFormat != "" {
+		timestamp := t.Format(l.CustomerTimeFormat)
+		fileName := fmt.Sprintf(l.CustomerBackupFormat, timestamp)
 		return filepath.Join(dir, fileName)
 	}
 	timestamp := t.Format(backupTimeFormat)
-	fileName := fmt.Sprintf(customerBackupFormat, timestamp)
+	fileName := fmt.Sprintf(l.CustomerBackupFormat, timestamp)
 	fileName = prefix + fileName + ext
 
 	return filepath.Join(dir, fileName)
@@ -272,16 +269,16 @@ func customerBackupName(name string, local bool) string {
 // backupName creates a new filename from the given name, inserting a timestamp
 // between the filename and the extension, using the local time if requested
 // (otherwise UTC).
-func backupName(name string, local bool) string {
-	if customerBackupFormat != "" {
-		return customerBackupName(name, local)
+func (l *FileWriter) backupName(name string) string {
+	if l.CustomerBackupFormat != "" {
+		return l.customerBackupName(name)
 	}
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)
 	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
-	if !local {
+	if !l.LocalTime {
 		t = t.UTC()
 	}
 

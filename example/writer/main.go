@@ -7,9 +7,14 @@ import (
 )
 
 func main() {
-	writer := &loggo.FileWriter{MaxAge: 7, FileName: "./log2.log", RotateCron: "0/5 * * * * *"}
+	writer := &loggo.FileWriter{
+		MaxAge:               7,
+		FileName:             "./log2.log",
+		RotateCron:           "0/5 * * * * *",
+		CustomerTimeFormat:   "2006-01-02T150405000",
+		CustomerBackupFormat: "testformat-%s.log",
+	}
 	writer.Init()
-	writer.SetBackupFormat("2006-01-02A150405000", "testformat-%s.log")
 	logger1 := log.Logger{}
 	logger1.SetOutput(writer)
 	logger1.SetFlags(log.LUTC)
