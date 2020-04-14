@@ -26,10 +26,15 @@ const (
 
 // ensure we always implement io.WriteCloser
 var _ io.WriteCloser = (*FileWriter)(nil)
+var customerTimeFormat string
+var customerBackupFormat string
 
 type FileWriter struct {
 	// RotateCron set the cron to rotate the log file
 	RotateCron string `json:"rotate_cron" ini:"rotate_cron"`
+
+	//
+	BackupFormat string
 
 	// FileName is the file to write logs to.  Backup log files will be retained
 	// in the same directory.  It uses <processname>-lumberjack.log in
@@ -100,6 +105,12 @@ func NewDefaultWriter() *FileWriter {
 
 func getTime() string {
 	return time.Now().Format(printTimeFormat)
+}
+
+// SetBackupFileFormat :
+func (p *FileWriter) SetBackupFormat(timeFormat, fileFormat string) {
+	customerBackupFormat = fileFormat
+	customerTimeFormat = timeFormat
 }
 func (p *FileWriter) Init() {
 	if p.FileName == "" {
@@ -236,11 +247,35 @@ func (l *FileWriter) openNew() error {
 	l.size = 0
 	return nil
 }
+func customerBackupName(name string, local bool) string {
+	dir := filepath.Dir(name)
+	filename := filepath.Base(name)
+	ext := filepath.Ext(filename)
+	prefix := filename[:len(filename)-len(ext)]
+	t := currentTime()
+	if !local {
+		t = t.UTC()
+	}
+
+	if customerBackupFormat != "" {
+		timestamp := t.Format(customerTimeFormat)
+		fileName := fmt.Sprintf(customerBackupFormat, timestamp)
+		return filepath.Join(dir, fileName)
+	}
+	timestamp := t.Format(backupTimeFormat)
+	fileName := fmt.Sprintf(customerBackupFormat, timestamp)
+	fileName = prefix + fileName + ext
+
+	return filepath.Join(dir, fileName)
+}
 
 // backupName creates a new filename from the given name, inserting a timestamp
 // between the filename and the extension, using the local time if requested
 // (otherwise UTC).
 func backupName(name string, local bool) string {
+	if customerBackupFormat != "" {
+		return customerBackupName(name, local)
+	}
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)

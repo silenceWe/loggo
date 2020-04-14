@@ -21,6 +21,14 @@ based on [lumberjack](https://github.com/natefinch/lumberjack)
 
 ```
 	
+	writer := &loggo.FileWriter{MaxAge: 7, FileName: "./log2.log",RotateCron: "0/5 * * * * *"}
+	writer.Init()
+	writer.SetBackupFormat("2006-01-02A150405000","testformat-%s.log")
+	logger1 := log.Logger{}
+	logger1.SetOutput(writer)
+	logger1.SetFlags(log.LUTC)
+	logger1.Println("test1")
+
 	errLog := &loggo.Logger{Level: loggo.ALL}
 	errLog.SetWriter(&loggo.FileWriter{
 		RotateCron: "0 0 * * * *",   // 日志滚动定时任务cron表达式
@@ -93,3 +101,4 @@ based on [lumberjack](https://github.com/natefinch/lumberjack)
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" ini:"compress"`
 ```
+
