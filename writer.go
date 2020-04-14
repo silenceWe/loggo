@@ -39,11 +39,6 @@ type FileWriter struct {
 	// os.TempDir() if empty.
 	FileName string `json:"filename" ini:"filename"`
 
-	// LocalTime determines if the time used for formatting the timestamps in
-	// backup files is the computer's local time.  The default is to use UTC
-	// time.
-	LocalTime bool `json:"localtime" ini:"localtime"`
-
 	// MaxSize is the maximum size in megabytes of the log file before it gets
 	// rotated. It defaults to 100 megabytes.
 	MaxSize int `json:"maxsize" ini:"maxsize"`
@@ -63,8 +58,6 @@ type FileWriter struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" ini:"compress"`
-
-	CustomerTimeFormat string
 
 	CustomerBackupFormat string
 
@@ -97,7 +90,6 @@ func NewDefaultWriter() *FileWriter {
 		RotateCron: defaultRotateCron,
 		FileName:   defaultLogName,
 		MaxAge:     7,
-		LocalTime:  true,
 		MaxSize:    defaultMaxSize,
 		Compress:   true,
 	}
@@ -246,23 +238,9 @@ func (l *FileWriter) openNew() error {
 }
 func (l *FileWriter) customerBackupName(name string) string {
 	dir := filepath.Dir(name)
-	filename := filepath.Base(name)
-	ext := filepath.Ext(filename)
-	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
-	if !l.LocalTime {
-		t = t.UTC()
-	}
-
-	if l.CustomerTimeFormat != "" {
-		timestamp := t.Format(l.CustomerTimeFormat)
-		fileName := fmt.Sprintf(l.CustomerBackupFormat, timestamp)
-		return filepath.Join(dir, fileName)
-	}
-	timestamp := t.Format(backupTimeFormat)
-	fileName := fmt.Sprintf(l.CustomerBackupFormat, timestamp)
-	fileName = prefix + fileName + ext
-
+	fileName := t.Format(l.CustomerBackupFormat)
+	fileName = fileName
 	return filepath.Join(dir, fileName)
 }
 
@@ -278,9 +256,6 @@ func (l *FileWriter) backupName(name string) string {
 	ext := filepath.Ext(filename)
 	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
-	if !l.LocalTime {
-		t = t.UTC()
-	}
 
 	timestamp := t.Format(backupTimeFormat)
 	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, timestamp, ext))
