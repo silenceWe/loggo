@@ -201,5 +201,8 @@ func (p *Logger) log(level int, m ...string) {
 
 // Close implements io.Closer, and closes the current logfile.
 func (l *Logger) Close() error {
+	if l.writer == nil {
+		return nil
+	}
 	return l.writer.Close()
 }
