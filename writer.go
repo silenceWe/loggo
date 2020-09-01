@@ -19,6 +19,8 @@ const (
 	printTimeFormat   = "2006-01-02 15:04:05.000"
 	backupTimeFormat  = "2006-01-02T15-04-05.000"
 	compressSuffix    = ".gz"
+	defaultPrefix     = "default-"
+	defaultSuffix     = ".log"
 	defaultLogName    = "./log/default.log"
 	defaultMaxSize    = 100
 	defaultRotateCron = "0 0 0 * * *" // 00:00 AM every morning
@@ -31,8 +33,9 @@ type FileWriter struct {
 	// RotateCron set the cron to rotate the log file
 	RotateCron string `json:"rotate_cron" ini:"rotate_cron"`
 
-	//
-	BackupFormat string
+	TimeFormat string
+	Prefix     string
+	Suffix     string
 
 	// FileName is the file to write logs to.  Backup log files will be retained
 	// in the same directory.  It uses <processname>-lumberjack.log in
@@ -58,8 +61,6 @@ type FileWriter struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `json:"compress" ini:"compress"`
-
-	CustomerBackupFormat string
 
 	rotateRunning bool
 	size          int64
@@ -92,7 +93,11 @@ func NewDefaultWriter() *FileWriter {
 		MaxAge:     7,
 		MaxSize:    defaultMaxSize,
 		Compress:   true,
+		TimeFormat: backupTimeFormat,
+		Suffix:     defaultSuffix,
+		Prefix:     defaultPrefix,
 	}
+
 	f.startRotateCron()
 	return f
 }
@@ -107,6 +112,16 @@ func (p *FileWriter) Init() {
 	}
 	if p.RotateCron == defaultLogName {
 		p.RotateCron = defaultRotateCron
+	}
+
+	if p.Prefix == "" {
+		p.Prefix = defaultPrefix
+	}
+	if p.Suffix == "" {
+		p.Suffix = defaultSuffix
+	}
+	if p.TimeFormat == "" {
+		p.TimeFormat = backupTimeFormat
 	}
 	p.startRotateCron()
 }
@@ -236,29 +251,16 @@ func (l *FileWriter) openNew() error {
 	l.size = 0
 	return nil
 }
-func (l *FileWriter) customerBackupName(name string) string {
-	dir := filepath.Dir(name)
-	t := currentTime()
-	fileName := t.Format(l.CustomerBackupFormat)
-	fileName = fileName
-	return filepath.Join(dir, fileName)
-}
 
 // backupName creates a new filename from the given name, inserting a timestamp
 // between the filename and the extension, using the local time if requested
 // (otherwise UTC).
 func (l *FileWriter) backupName(name string) string {
-	if l.CustomerBackupFormat != "" {
-		return l.customerBackupName(name)
-	}
 	dir := filepath.Dir(name)
-	filename := filepath.Base(name)
-	ext := filepath.Ext(filename)
-	prefix := filename[:len(filename)-len(ext)]
 	t := currentTime()
 
-	timestamp := t.Format(backupTimeFormat)
-	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, timestamp, ext))
+	timestamp := t.Format(l.TimeFormat)
+	return filepath.Join(dir, fmt.Sprintf("%s%s%s", l.Prefix, timestamp, l.Suffix))
 }
 
 // openExistingOrNew opens the logfile if it exists and if the current write
@@ -406,22 +408,18 @@ func (l *FileWriter) oldLogFiles() ([]logInfo, error) {
 	}
 	logFiles := []logInfo{}
 
-	prefix, ext := l.prefixAndExt()
-
 	for _, f := range files {
 		if f.IsDir() {
 			continue
 		}
-		if t, err := l.timeFromName(f.Name(), prefix, ext); err == nil {
+		if t, err := l.timeFromName(f.Name(), l.Prefix, l.Suffix); err == nil {
 			logFiles = append(logFiles, logInfo{t, f})
 			continue
 		}
-		if t, err := l.timeFromName(f.Name(), prefix, ext+compressSuffix); err == nil {
+		if t, err := l.timeFromName(f.Name(), l.Prefix, l.Suffix+compressSuffix); err == nil {
 			logFiles = append(logFiles, logInfo{t, f})
 			continue
 		}
-		// error parsing means that the suffix at the end was not generated
-		// by lumberjack, and therefore it's not a backup file.
 	}
 
 	sort.Sort(byFormatTime(logFiles))
@@ -432,15 +430,15 @@ func (l *FileWriter) oldLogFiles() ([]logInfo, error) {
 // timeFromName extracts the formatted time from the filename by stripping off
 // the filename's prefix and extension. This prevents someone's filename from
 // confusing time.parse.
-func (l *FileWriter) timeFromName(filename, prefix, ext string) (time.Time, error) {
+func (l *FileWriter) timeFromName(filename, prefix, suffix string) (time.Time, error) {
 	if !strings.HasPrefix(filename, prefix) {
 		return time.Time{}, errors.New("mismatched prefix")
 	}
-	if !strings.HasSuffix(filename, ext) {
-		return time.Time{}, errors.New("mismatched extension")
+	if !strings.HasSuffix(filename, suffix) {
+		return time.Time{}, errors.New("mismatched suffix")
 	}
-	ts := filename[len(prefix) : len(filename)-len(ext)]
-	return time.Parse(backupTimeFormat, ts)
+	ts := filename[len(prefix) : len(filename)-len(suffix)]
+	return time.Parse(l.TimeFormat, ts)
 }
 
 // max returns the maximum size in bytes of log files before rolling.
