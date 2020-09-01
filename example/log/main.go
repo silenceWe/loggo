@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/silenceWe/loggo"
+	"time"
 )
 
 /*
@@ -32,16 +33,20 @@ func main() {
 
 	errLog := &loggo.Logger{Level: loggo.ALL}
 	errLog.SetWriter(&loggo.FileWriter{
-		RotateCron: "0 0 * * * *",   // 日志滚动定时任务cron表达式
-		FileName:   "./log/err.log", // 日志文件名，滚动日志将在相同目录下生成
-		LocalTime:  false,
-		MaxSize:    100,   // 单个日志最大size，超过阈值将会滚动
-		MaxAge:     0,     // 日志保留时长(天)
-		MaxBackups: 0,     // 日志保留个数
-		Compress:   false, // 是否开启压缩
+		RotateCron: "* * * * * *", // 日志滚动定时任务cron表达式
+		FileDir:    "./log/",      // 日志路径，滚动日志将在相同目录下生成
+		FileName:   "err.log",     // 日志文件名
+		MaxBackups: 4,             // 日志保留个数
+		Compress:   false,         // 是否开启压缩
 	})
 
 	errLog.Infoln("err info:", "err")
 	errLog.Infofn("info:%s,%d", "aaa", 123)
+
+	for i := 0; i < 5; i++ {
+		errLog.Infoln("err")
+		time.Sleep(1 * time.Second)
+	}
+	time.Sleep(1 * time.Second)
 
 }

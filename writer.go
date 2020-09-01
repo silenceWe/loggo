@@ -2,7 +2,6 @@ package loggo
 
 import (
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"github.com/robfig/cron"
 	"io"
@@ -20,7 +19,7 @@ const (
 	backupTimeFormat  = "2006-01-02T15-04-05.000"
 	compressSuffix    = ".gz"
 	defaultLogName    = "./log/default.log"
-	defaultMaxSize    = 100
+	defaultMaxBackups = 7
 	defaultRotateCron = "0 0 0 * * *" // 00:00 AM every morning
 )
 
@@ -31,24 +30,12 @@ type FileWriter struct {
 	// RotateCron set the cron to rotate the log file
 	RotateCron string `json:"rotate_cron" ini:"rotate_cron"`
 
-	//
-	BackupFormat string
-
 	// FileName is the file to write logs to.  Backup log files will be retained
 	// in the same directory.  It uses <processname>-lumberjack.log in
 	// os.TempDir() if empty.
 	FileName string `json:"filename" ini:"filename"`
 
-	// MaxSize is the maximum size in megabytes of the log file before it gets
-	// rotated. It defaults to 100 megabytes.
-	MaxSize int `json:"maxsize" ini:"maxsize"`
-
-	// MaxAge is the maximum number of days to retain old log files based on the
-	// timestamp encoded in their filename.  Note that a day is defined as 24
-	// hours and may not exactly correspond to calendar days due to daylight
-	// savings, leap seconds, etc. The default is not to remove old log files
-	// based on age.
-	MaxAge int `json:"maxage" ini:"maxage"`
+	FileDir string `json:"filedir" ini:"filedir"`
 
 	// MaxBackups is the maximum number of old log files to retain.  The default
 	// is to retain all old log files (though MaxAge may still cause them to get
@@ -89,8 +76,7 @@ func NewDefaultWriter() *FileWriter {
 	f := &FileWriter{
 		RotateCron: defaultRotateCron,
 		FileName:   defaultLogName,
-		MaxAge:     7,
-		MaxSize:    defaultMaxSize,
+		MaxBackups: defaultMaxBackups,
 		Compress:   true,
 	}
 	f.startRotateCron()
@@ -119,24 +105,12 @@ func (l *FileWriter) Write(p []byte) (n int, err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	writeLen := int64(len(p))
-	if writeLen > l.max() {
-		return 0, fmt.Errorf(
-			"write length %d exceeds maximum file size %d", writeLen, l.max(),
-		)
-	}
-
 	if l.file == nil {
-		if err = l.openExistingOrNew(len(p)); err != nil {
+		if err = l.openExistingOrNew(); err != nil {
 			return 0, err
 		}
 	}
 
-	if l.size+writeLen > l.max() {
-		if err := l.rotate(); err != nil {
-			return 0, err
-		}
-	}
 	n, err = l.file.Write(p)
 	l.size += int64(n)
 	return n, err
@@ -264,7 +238,7 @@ func (l *FileWriter) backupName(name string) string {
 // openExistingOrNew opens the logfile if it exists and if the current write
 // would not put it over MaxSize.  If there is no such file or the write would
 // put it over the MaxSize, a new file is created.
-func (l *FileWriter) openExistingOrNew(writeLen int) error {
+func (l *FileWriter) openExistingOrNew() error {
 	l.mill()
 
 	filename := l.filename()
@@ -274,10 +248,6 @@ func (l *FileWriter) openExistingOrNew(writeLen int) error {
 	}
 	if err != nil {
 		return fmt.Errorf("error getting log file info: %s", err)
-	}
-
-	if info.Size()+int64(writeLen) >= l.max() {
-		return l.rotate()
 	}
 
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0644)
@@ -304,7 +274,7 @@ func (l *FileWriter) filename() string {
 // files are removed, keeping at most l.MaxBackups files, as long as
 // none of them are older than MaxAge.
 func (l *FileWriter) millRunOnce() error {
-	if l.MaxBackups == 0 && l.MaxAge == 0 && !l.Compress {
+	if l.MaxBackups == 0 && !l.Compress {
 		return nil
 	}
 
@@ -327,21 +297,7 @@ func (l *FileWriter) millRunOnce() error {
 			}
 			preserved[fn] = true
 
-			if len(preserved) > l.MaxBackups {
-				remove = append(remove, f)
-			} else {
-				remaining = append(remaining, f)
-			}
-		}
-		files = remaining
-	}
-	if l.MaxAge > 0 {
-		diff := time.Duration(int64(l.MaxAge) * int64(24*time.Hour))
-		cutoff := currentTime().Add(-1 * diff)
-
-		var remaining []logInfo
-		for _, f := range files {
-			if f.timestamp.Before(cutoff) {
+			if len(preserved) > l.MaxBackups+1 {
 				remove = append(remove, f)
 			} else {
 				remaining = append(remaining, f)
@@ -350,6 +306,7 @@ func (l *FileWriter) millRunOnce() error {
 		files = remaining
 	}
 
+	fmt.Println("l.Compress", l.FileName, l.Compress)
 	if l.Compress {
 		for _, f := range files {
 			if !strings.HasSuffix(f.Name(), compressSuffix) {
@@ -404,51 +361,18 @@ func (l *FileWriter) oldLogFiles() ([]logInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't read log file directory: %s", err)
 	}
+
 	logFiles := []logInfo{}
-
-	prefix, ext := l.prefixAndExt()
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-		if t, err := l.timeFromName(f.Name(), prefix, ext); err == nil {
-			logFiles = append(logFiles, logInfo{t, f})
-			continue
-		}
-		if t, err := l.timeFromName(f.Name(), prefix, ext+compressSuffix); err == nil {
-			logFiles = append(logFiles, logInfo{t, f})
-			continue
-		}
-		// error parsing means that the suffix at the end was not generated
-		// by lumberjack, and therefore it's not a backup file.
+	if len(files) == 0 {
+		return nil, nil
 	}
 
-	sort.Sort(byFormatTime(logFiles))
+	for _, e := range files {
+		logFiles = append(logFiles, e)
+	}
 
+	sort.Sort(byName(logFiles))
 	return logFiles, nil
-}
-
-// timeFromName extracts the formatted time from the filename by stripping off
-// the filename's prefix and extension. This prevents someone's filename from
-// confusing time.parse.
-func (l *FileWriter) timeFromName(filename, prefix, ext string) (time.Time, error) {
-	if !strings.HasPrefix(filename, prefix) {
-		return time.Time{}, errors.New("mismatched prefix")
-	}
-	if !strings.HasSuffix(filename, ext) {
-		return time.Time{}, errors.New("mismatched extension")
-	}
-	ts := filename[len(prefix) : len(filename)-len(ext)]
-	return time.Parse(backupTimeFormat, ts)
-}
-
-// max returns the maximum size in bytes of log files before rolling.
-func (l *FileWriter) max() int64 {
-	if l.MaxSize == 0 {
-		return int64(defaultMaxSize * megabyte)
-	}
-	return int64(l.MaxSize) * int64(megabyte)
 }
 
 // dir returns the directory for the current filename.
@@ -522,22 +446,19 @@ func compressLogFile(src, dst string) (err error) {
 
 // logInfo is a convenience struct to return the filename and its embedded
 // timestamp.
-type logInfo struct {
-	timestamp time.Time
-	os.FileInfo
+type logInfo os.FileInfo
+
+// byName sorts by newest time formatted in the name.
+type byName []logInfo
+
+func (b byName) Less(i, j int) bool {
+	return b[i].Name() < b[j].Name()
 }
 
-// byFormatTime sorts by newest time formatted in the name.
-type byFormatTime []logInfo
-
-func (b byFormatTime) Less(i, j int) bool {
-	return b[i].timestamp.After(b[j].timestamp)
-}
-
-func (b byFormatTime) Swap(i, j int) {
+func (b byName) Swap(i, j int) {
 	b[i], b[j] = b[j], b[i]
 }
 
-func (b byFormatTime) Len() int {
+func (b byName) Len() int {
 	return len(b)
 }
